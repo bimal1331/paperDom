@@ -39,21 +39,13 @@
 
 	angular
 		.module('paperDom', [])
+
 		.filter('slice', function() {
 		    return function(arr, start, end) {
 		    	return (arr || []).slice(start, end);
 		  	};
 		})
-		.directive('onLast', [function() {
-			return {
-				restrict : 'A',
-				link : function($scope, $element, $attrs) {
-					if($scope.$last) {
-						$scope.$emit('NGREPEATDONE');
-					}
-				}
-			}
-		}])
+		
 		.directive('paperDom', ['$timeout', '$rootScope', '$filter', '$interpolate',
 			function($timeout, $rootScope, $filter, $interpolate) {
 
@@ -61,6 +53,13 @@
 					INITIAL_ITEM_RENDER_COUNT = 30,
 					EXTRA_VIEWPORT_FACTOR = 1,
 					localCollectionChange = false,
+					upDummyContainer = document.createElement('div'),
+					downDummyContainer = document.createElement('div'),
+					lastVisibleItemRef = INITIAL_ITEM_RENDER_COUNT,
+					start = 0,
+					end = 0,
+					scrollPosition = 0,
+					allElementsRendered = false,
 					collectionName;
 
 				return {
@@ -77,35 +76,29 @@
 							}
 						};
 
-						// this.fetch = function(start, end) {
-						// 	if(end > 0) {
-						// 		if(end < this.originalCollection.length) {
-						// 			return this.originalCollection.slice(start > -1 ? start : 0, end);
-						// 		}
-						// 		else {
-						// 			return this.originalCollection.slice(start);
-						// 		}
-						// 	}
-						// 	else {
-						// 		return [];
-						// 	}
-						// };
+						this.refreshCollection = function(start, end) {
+							this.safeApply(function() {
+								// $scope[collectionName] = $ctrl.fetch(start, end);
+								localCollectionChange = true;
+								$scope.sliceStart = start;
+								$scope.sliceEnd = end;
+
+								setTimeout(function() { localCollectionChange = false; }, 100);
+
+							});
+						};
 
 					}],
 					compile : function paperDomCompile($tElem, $tAttrs) {
 						console.log('COMPILE')
-						angular.forEach($tElem[0].children, function(node) {
-							node.setAttribute('on-last', '');
-						});
 
 						return {
 							pre : function paperDomPreLink($scope, $element, $attrs, $ctrl, $transclude) {
-								var originalCollectionSet = false,
-									originalCollection, collectionExpr;
+								var collectionExpr;
 
 								getCollectionName();
 
-								$scope.$watchCollection(collectionExpr, watchCollectionAction);
+								$scope.$watchCollection('collection | filter:searchKey', watchCollectionAction);
 
 								function getCollectionName() {
 									var expr, match;
@@ -127,14 +120,18 @@
 									if(isEmptyCollection(collection)) return;
 									console.log('COLLECTION CHANGED PAPERDOM');
 
-									if(!originalCollectionSet) {
-										// $ctrl.originalCollection = collection;
-										// originalCollectionSet = true;
+									if(!localCollectionChange) {
+										$ctrl.originalCollection = collection;
+										lastVisibleItemRef = INITIAL_ITEM_RENDER_COUNT;
+										start = 0;
+										end = 0;
+										scrollPosition = 0;
+										allElementsRendered = false;
 
-										$scope.sliceStart = 1;
-										$scope.sliceEnd = INITIAL_ITEM_RENDER_COUNT;
-										
-										// $scope[collectionName] = $ctrl.fetch(0, INITIAL_ITEM_RENDER_COUNT);
+										upDummyContainer.style.height = '0px';
+										downDummyContainer.style.height = '0px';
+
+										$ctrl.refreshCollection(0, INITIAL_ITEM_RENDER_COUNT);
 									}
 
 									
@@ -143,16 +140,9 @@
 							},
 							post : function paperDomPostLink($scope, $element, $attrs, $ctrl, $transclude) {
 
-								var upDummyContainer = document.createElement('div'),
-									downDummyContainer = document.createElement('div'),
-									rawElem = $element[0],
-									scrollPosition = 0,
+								var rawElem = $element[0],
 									scrollHandlerBusy = false,
-									lastVisibleItemRef = INITIAL_ITEM_RENDER_COUNT,
-									allElementsRendered = false,
 									disableUpScroll = false,
-									start = 0,
-									end = 0,
 									scrollDirection, itemOuterHeight, viewPortItemCount, firstRowElem, lastRowElem;
 
 								$element.on( 'scroll', scrollHandler );
@@ -164,7 +154,7 @@
 								function scrollHandler($event) {
 									var overFlowDiff;
 									// if(scrollHandlerBusy) return;
-									scrollHandlerBusy = true;
+									// scrollHandlerBusy = true;
 
 									if(!itemOuterHeight) {
 										itemOuterHeight = Math.floor(rawElem.scrollHeight/INITIAL_ITEM_RENDER_COUNT);
@@ -205,18 +195,6 @@
 									scrollPosition = rawElem.scrollTop;
 									// scrollHandlerBusy = false;	
 									
-								}
-
-								function refreshCollection(start, end) {
-									$scope.$apply(function() {
-										// $scope[collectionName] = $ctrl.fetch(start, end);
-										localCollectionChange = true;
-										$scope.sliceStart = start;
-										$scope.sliceEnd = end;
-
-									});
-
-
 								}
 
 								function fetchDown() {
@@ -264,7 +242,7 @@
 										disableUpScroll = true;
 									}
 
-									refreshCollection(start, end);
+									$ctrl.refreshCollection(start, end);
 
 									upDummyContainer.style.height = start === 0
 										? '0px'
@@ -290,7 +268,7 @@
 										start = end - 3*viewPortItemCount;
 									}
 
-									refreshCollection(start, end);
+									$ctrl.refreshCollection(start, end);
 								}			
 
 							}
