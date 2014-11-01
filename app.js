@@ -2,7 +2,7 @@
 	'use strict';
 
 	angular
-		.module('longList', ['paperDom', 'sf.virtualScroll'])
+		.module('longList', ['paperDom'])
 		.controller('AppController', AppController);
 
 		AppController.$inject = ['$scope', '$timeout'];

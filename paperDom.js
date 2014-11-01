@@ -90,31 +90,43 @@
 
 					}],
 					compile : function paperDomCompile($tElem, $tAttrs) {
-						console.log('COMPILE')
+						console.log('COMPILE');
+
+						var repeatElemValues, repeatElem, repeatAttr, match, collectionExpr, trackByExpr, lhs, aliasAs;
+						var	PREFIX_REGEXP = /^(x[\:\-_]|data[\:\-_])/i;
+
+						repeatElemValues = findRepeatElement($tElem[0]);
+
+						repeatElem = repeatElemValues[0];
+						repeatAttr = repeatElemValues[1];
+						match = repeatAttr.value.match(/^\s*([\s\S]+?)\s+in\s+([\s\S]+?)(?:\s+as\s+([\s\S]+?))?(?:\s+track\s+by\s+([\s\S]+?))?\s*$/);
+						lhs = match[1];
+						collectionExpr = match[2];
+						aliasAs = match[3];
+						trackByExpr = match[4];
+						collectionName = collectionExpr.match(/^\s*([\s\S]+?)(?:\s+\|\s+([\s\S]+?))?$/)[1];
+						console.log(collectionName, collectionExpr);
+						repeatElem.setAttribute(repeatAttr.name, lhs + ' in ' + collectionExpr + ' | slice:sliceStart:sliceEnd ' + ' track by ' + trackByExpr);
+
+						function findRepeatElement(node) {
+							var childElements = node.getElementsByTagName('*'),
+								nAttr, elem;
+
+							for(var i = 0, n = childElements.length; i < n; i++) {								
+								for(var ii = 0, elem = childElements[i], attributes = elem.attributes, nn = attributes.length; ii < nn; ii++) {
+									nAttr = attributes[ii].name.replace(PREFIX_REGEXP, '').toLowerCase();
+									if(/^(ng\Srepeat)$/.test(nAttr) || /^(ng\Srepeat\Sstart)$/.test(nAttr)) {
+										return [elem, attributes[ii]];
+									}
+								}
+							}
+																		
+						}
 
 						return {
 							pre : function paperDomPreLink($scope, $element, $attrs, $ctrl, $transclude) {
-								var collectionExpr;
-
-								getCollectionName();
-
-								$scope.$watchCollection('collection | filter:searchKey', watchCollectionAction);
-
-								function getCollectionName() {
-									var expr, match;
-
-									angular.forEach($element[0].childNodes, function(node) {
-										if(node.nodeType == 8) {
-											console.log(node.nodeType)
-											expr = node.nodeValue && node.nodeValue.split('ngRepeat:')[1];
-											//Regex taken from ngRepeat
-											match = expr.match(/^\s*([\s\S]+?)\s+in\s+([\s\S]+?)(?:\s+as\s+([\s\S]+?))?(?:\s+track\s+by\s+([\s\S]+?))?\s*$/);
-											collectionExpr = match[2];
-											collectionName = collectionExpr.match(/^\s*([\s\S]+?)(?:\s+\|\s+([\s\S]+?))?$/)[1];
-											console.log(collectionName, collectionExpr);
-										}
-									});
-								}
+								
+								$scope.$watchCollection(collectionExpr, watchCollectionAction);
 
 								function watchCollectionAction(collection) {
 									if(isEmptyCollection(collection)) return;
