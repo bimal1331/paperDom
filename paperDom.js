@@ -82,6 +82,7 @@
 								localCollectionChange = true;
 								$scope.sliceStart = start;
 								$scope.sliceEnd = end;
+								console.log($scope.sliceStart, $scope.sliceEnd);
 
 								setTimeout(function() { localCollectionChange = false; }, 100);
 
@@ -92,13 +93,20 @@
 					compile : function paperDomCompile($tElem, $tAttrs) {
 						console.log('COMPILE');
 
-						var repeatElemValues, repeatElem, repeatAttr, match, collectionExpr, trackByExpr, lhs, aliasAs;
+						var repeatElemValues, repeatElem, repeatAttr, match, collectionExpr, trackByExpr, lhs, aliasAs, repeatContainer, extraElements;
 						var	PREFIX_REGEXP = /^(x[\:\-_]|data[\:\-_])/i;
 
 						repeatElemValues = findRepeatElement($tElem[0]);
 
 						repeatElem = repeatElemValues[0];
 						repeatAttr = repeatElemValues[1];
+						repeatContainer = repeatElem.parentNode;
+
+						repeatContainer.insertBefore(upDummyContainer, repeatElem);
+						repeatContainer.insertBefore(downDummyContainer, repeatElem.nextElementSibling);
+						extraElements = repeatContainer.children.length - 1; //Reduce by 1 for the repeat element
+
+						//Regex taken from ngRepeat
 						match = repeatAttr.value.match(/^\s*([\s\S]+?)\s+in\s+([\s\S]+?)(?:\s+as\s+([\s\S]+?))?(?:\s+track\s+by\s+([\s\S]+?))?\s*$/);
 						lhs = match[1];
 						collectionExpr = match[2];
@@ -155,13 +163,15 @@
 								var rawElem = $element[0],
 									scrollHandlerBusy = false,
 									disableUpScroll = false,
-									scrollDirection, itemOuterHeight, viewPortItemCount, firstRowElem, lastRowElem;
+									scrollDirection, itemOuterHeight, viewPortItemCount, firstRowElem, lastRowElem, containerHeight;
 
 								$element.on( 'scroll', scrollHandler );
 
-								$element.prepend(upDummyContainer);
-								$element.append(downDummyContainer);
+								angular.element('$window').on('resize', resizeHandler);
 
+								function resizeHandler() {
+
+								}
 
 								function scrollHandler($event) {
 									var overFlowDiff;
@@ -169,35 +179,37 @@
 									// scrollHandlerBusy = true;
 
 									if(!itemOuterHeight) {
+										containerHeight = rawElem.offsetHeight;
 										itemOuterHeight = Math.floor(rawElem.scrollHeight/INITIAL_ITEM_RENDER_COUNT);
-										viewPortItemCount = Math.ceil(rawElem.offsetHeight/itemOuterHeight);
+										viewPortItemCount = Math.ceil(containerHeight/itemOuterHeight);
+										console.log('VIEWPORT COUNT -- ', viewPortItemCount)
 
-										$scope.$on('NGREPEATDONE', function() {
-											scrollHandlerBusy = false;
-											console.log('Viewport RENDERED')
-										});
+										// $scope.$on('NGREPEATDONE', function() {
+										// 	scrollHandlerBusy = false;
+										// 	console.log('Viewport RENDERED')
+										// });
 									}
 
 									if(rawElem.scrollTop > scrollPosition) {
+										
+										lastRowElem = downDummyContainer.previousElementSibling;
 										console.log('scrolling down');
-										lastRowElem = rawElem.lastElementChild.previousElementSibling;
-
-										if(!allElementsRendered && rawElem.scrollTop + (rawElem.offsetHeight*(1+CONTAINER_OVERFLOW_FACTOR)) >= rawElem.scrollHeight) {
+										if(!allElementsRendered && rawElem.scrollTop + (containerHeight*(1+CONTAINER_OVERFLOW_FACTOR)) >= rawElem.scrollHeight) {
 											//Fetch for down scrolling, container height being incremented
 											updateDown();
 											
 										}
-										else if(lastRowElem.getBoundingClientRect().bottom < rawElem.offsetHeight*(1+CONTAINER_OVERFLOW_FACTOR) + itemOuterHeight) {
+										else if(lastRowElem.getBoundingClientRect().bottom < containerHeight*(1+CONTAINER_OVERFLOW_FACTOR) + itemOuterHeight) {
 											//Fetch for down scrolling, no change in container height
 											fetchDown();
 											
 										}
 									}
 									else {
-										console.log('scrolling up');
-										firstRowElem =  rawElem.children[1];
 										
-										if(!disableUpScroll && firstRowElem.getBoundingClientRect().top + rawElem.offsetHeight*CONTAINER_OVERFLOW_FACTOR > itemOuterHeight) {
+										firstRowElem =  upDummyContainer.nextElementSibling;
+										console.log('scrolling up');
+										if(!disableUpScroll && firstRowElem.getBoundingClientRect().top + containerHeight*CONTAINER_OVERFLOW_FACTOR > itemOuterHeight) {
 											//Fetch for up scrolling, no change in container height
 											fetchUp();											
 										}
@@ -269,7 +281,7 @@
 										disableUpScroll = false;
 									}
 
-									if(start === 0 && rawElem.children.length - 2 < viewPortItemCount*3) {
+									if(start === 0 && repeatContainer.children.length - extraElements < viewPortItemCount*3) {
 										end = viewPortItemCount*3;
 									}
 									else {

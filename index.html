@@ -13,16 +13,21 @@
 
 	<input type="text" ng-model="searchKey" placeholder="search..." />
 
-	<div>
-		<ul paper-dom style="max-height:500px; width:300px; overflow:auto;">
-			<li style="height:20px; border:1px black solid; margin-top:3px;" ng-repeat="item in collection | filter:searchKey track by item.title">
-				<span>{{item.title}}</span>
-				<span>{{item.price}}</span>
-				<span>{{item.timestamp}}</span>
-				<span>{{item.quantity}}</span>
-				<span>{{item.available}}</span>
-			</li>
-		</ul>
+	<div paper-dom style="max-height:500px; width:300px; overflow:auto;">
+		<div>
+			<ul>
+				<span>Hello</span>
+				<span>World</span>
+				<li style="height:20px; border:1px black solid; margin-top:3px;" ng-repeat="item in collection | filter:searchKey track by item.title">
+					<span>{{item.title}}</span>
+					<span>{{item.price}}</span>
+					<span>{{item.timestamp}}</span>
+					<span>{{item.quantity}}</span>
+					<span>{{item.available}}</span>
+				</li>
+			</ul>	
+		</div>
+		
 	</div>
 
 </body>
